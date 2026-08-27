@@ -33,19 +33,20 @@ END_YEAR = 2025
 
 
 # ---------------------------------------------------------------------
-# DEFINITION OF GREENLANDIC AFFILIATION
+# DEFINITION OF COUNTRY AFFILIATION
 # ---------------------------------------------------------------------
 #
 # OpenAlex assigns institutions a country code.
 #
 # Greenland = GL
+# Denmark = DK
+# America = US
 #
-# We therefore identify a Greenlandic affiliation when at least one
-# institution in an authorship has country_code == "GL".
-#
-# ---------------------------------------------------------------------
+# We therefore identify a affiliation when at least one
+# institution in an authorship has the defined country_code.
 
-GREENLAND_COUNTRY_CODE = "GL"
+
+COUNTRY_CODE = "DK"
 
 # ---------------------------------------------------------------------
 # LOAD DATA
@@ -121,16 +122,15 @@ def parse_institutions(value):
     return parsed
 
 
-def get_greenland_institutions(value):
+def get_country_institutions(value):
     """
-    Return structured institution records whose country_code
-    is Greenland (GL).
+    Return structured institution records from country_code
     """
     institutions = parse_institutions(
         value
     )
 
-    greenland_institutions = []
+    country_institutions = []
 
     for institution in institutions:
 
@@ -146,13 +146,13 @@ def get_greenland_institutions(value):
             )
         )
 
-        if country_code == GREENLAND_COUNTRY_CODE:
+        if country_code == COUNTRY_CODE:
 
-            greenland_institutions.append(
+            country_institutions.append(
                 institution
             )
 
-    return greenland_institutions
+    return country_institutions
 
 
 def institution_names(institutions):
@@ -190,24 +190,24 @@ def institution_ids(institutions):
 
 
 # ---------------------------------------------------------------------
-# IDENTIFY GREENLANDIC AFFILIATIONS
+# IDENTIFY COUNTRY AFFILIATIONS
 # ---------------------------------------------------------------------
 
 authors[
-    "greenland_institutions"
+    "country_institutions"
 ] = (
     authors["institutions"]
     .apply(
-        get_greenland_institutions
+        get_country_institutions
     )
 )
 
 
 authors[
-    "has_greenland_affiliation"
+    "has_country_affiliation"
 ] = (
     authors[
-        "greenland_institutions"
+        "country_institutions"
     ]
     .apply(
         lambda x: len(x) > 0
@@ -216,10 +216,10 @@ authors[
 
 
 authors[
-    "greenland_institution_names"
+    "country_institution_names"
 ] = (
     authors[
-        "greenland_institutions"
+        "country_institutions"
     ]
     .apply(
         institution_names
@@ -228,10 +228,10 @@ authors[
 
 
 authors[
-    "greenland_institution_ids"
+    "country_institution_ids"
 ] = (
     authors[
-        "greenland_institutions"
+        "country_institutions"
     ]
     .apply(
         institution_ids
@@ -240,23 +240,23 @@ authors[
 
 
 # ---------------------------------------------------------------------
-# DEFINE GREENLANDIC CO-AUTHOR
+# DEFINE CO-AUTHOR FROM SPECIFIED COUNTRY
 # ---------------------------------------------------------------------
-# A Greenlandic co-author is an author on a GoK publication who has
-# a Greenlandic institutional affiliation.
+# A country-specific co-author is an author on a GoK publication who has
+# a country-specific institutional affiliation.
 #
 # We exclude the GoK+GEUS authors from this definition, because the
 # purpose here is to measure collaboration between GoK and institutions
-# in Greenland.
+# in the specified country.
 # ---------------------------------------------------------------------
 
 if "is_gok_geus_author" in authors.columns:
 
     authors[
-        "is_greenland_coauthor"
+        "is_country_coauthor"
     ] = (
         authors[
-            "has_greenland_affiliation"
+            "has_country_affiliation"
         ]
         &
         ~authors[
@@ -268,69 +268,69 @@ else:
 
     # Fallback if the column does not exist.
     authors[
-        "is_greenland_coauthor"
+        "is_country_coauthor"
     ] = authors[
-        "has_greenland_affiliation"
+        "has_country_affiliation"
     ]
 
 
 # ---------------------------------------------------------------------
-# SAVE AUTHOR-LEVEL GREENLAND INFORMATION
+# SAVE AUTHOR-LEVEL COUNTRY INFORMATION
 # ---------------------------------------------------------------------
 
 authors.to_pickle(
     OUTPUT_DIR
-    / "gok_authors_greenland.pkl"
+    / f"gok_authors_{COUNTRY_CODE}.pkl"
 )
 
 authors.to_csv(
     OUTPUT_DIR
-    / "gok_authors_greenland.csv",
+    / f"gok_authors_{COUNTRY_CODE}.csv",
     index=False
 )
 
 
 # ---------------------------------------------------------------------
-# PUBLICATION-LEVEL GREENLAND INFORMATION
+# PUBLICATION-LEVEL COUNTRY INFORMATION
 # ---------------------------------------------------------------------
 
-greenland_author_records = (
+country_author_records = (
     authors[
         authors[
-            "is_greenland_coauthor"
+            "is_country_coauthor"
         ]
     ]
     .copy()
 )
 
 
-# Unique publications with at least one Greenlandic co-author
-greenland_work_ids = set(
-    greenland_author_records[
+# Unique publications with at least one country co-author
+country_work_ids = set(
+    country_author_records[
         "openalex_work_id"
     ]
 )
 
 
 pubs[
-    "has_greenland_coauthor"
+    "has_country_coauthor"
 ] = (
     pubs["openalex_id"]
-    .isin(greenland_work_ids)
+    .isin(country_work_ids)
 )
 
 
 # ---------------------------------------------------------------------
-# COUNT GREENLANDIC AUTHORS PER PUBLICATION
+# COUNT COUNTRY AUTHORS PER PUBLICATION
 # ---------------------------------------------------------------------
 
-greenland_counts = (
-    greenland_author_records
+country_counts = (
+    country_author_records
     .groupby(
         "openalex_work_id"
     )
     .agg(
-        greenland_coauthors=(
+        country_coauthors=(
             "author_id",
             "nunique"
         )
@@ -340,7 +340,7 @@ greenland_counts = (
 
 
 pubs = pubs.merge(
-    greenland_counts,
+    country_counts,
     left_on="openalex_id",
     right_on="openalex_work_id",
     how="left"
@@ -348,10 +348,10 @@ pubs = pubs.merge(
 
 
 pubs[
-    "greenland_coauthors"
+    "country_coauthors"
 ] = (
     pubs[
-        "greenland_coauthors"
+        "country_coauthors"
     ]
     .fillna(0)
     .astype(int)
@@ -359,24 +359,24 @@ pubs[
 
 
 # ---------------------------------------------------------------------
-# GREENLANDIC INSTITUTIONS PER PUBLICATION
+# COUNTRY INSTITUTIONS PER PUBLICATION
 # ---------------------------------------------------------------------
 
-greenland_institution_rows = []
+country_institution_rows = []
 
-for _, row in greenland_author_records.iterrows():
+for _, row in country_author_records.iterrows():
 
     work_id = row[
         "openalex_work_id"
     ]
 
     institutions = row[
-        "greenland_institutions"
+        "country_institutions"
     ]
 
     for institution in institutions:
 
-        greenland_institution_rows.append({
+        country_institution_rows.append({
 
             "openalex_work_id":
                 work_id,
@@ -402,28 +402,28 @@ for _, row in greenland_author_records.iterrows():
 
         })
 
-greenland_institution_authors = (
+country_institution_authors = (
     pd.DataFrame(
-        greenland_institution_rows
+        country_institution_rows
     )
 )
 
 
 # ---------------------------------------------------------------------
-# UNIQUE GREENLANDIC INSTITUTIONS PER PAPER
+# UNIQUE COUNTRY INSTITUTIONS PER PAPER
 # ---------------------------------------------------------------------
 
 if len(
-    greenland_institution_authors
+    country_institution_authors
 ) > 0:
 
     institution_per_work = (
-        greenland_institution_authors
+        country_institution_authors
         .groupby(
             "openalex_work_id"
         )
         .agg(
-            greenland_institutions=(
+            country_institutions=(
                 "institution_name",
                 lambda x:
                     "; ".join(
@@ -432,7 +432,7 @@ if len(
                         )
                     )
             ),
-            greenland_institution_count=(
+            country_institution_count=(
                 "institution_id",
                 "nunique"
             ),
@@ -445,8 +445,8 @@ else:
     institution_per_work = pd.DataFrame(
         columns=[
             "openalex_work_id",
-            "greenland_institutions",
-            "greenland_institution_count",
+            "country_institutions",
+            "country_institution_count",
         ]
     )
 
@@ -460,10 +460,10 @@ pubs = pubs.merge(
 
 
 pubs[
-    "greenland_institution_count"
+    "country_institution_count"
 ] = (
     pubs[
-        "greenland_institution_count"
+        "country_institution_count"
     ]
     .fillna(0)
     .astype(int)
@@ -471,10 +471,10 @@ pubs[
 
 
 pubs[
-    "greenland_institutions"
+    "country_institutions"
 ] = (
     pubs[
-        "greenland_institutions"
+        "country_institutions"
     ]
     .fillna("")
 )
@@ -486,20 +486,20 @@ pubs[
 
 pubs.to_pickle(
     OUTPUT_DIR
-    / "gok_publications_greenland.pkl"
+    / f"gok_publications_{COUNTRY_CODE}.pkl"
 )
 
 pubs.to_csv(
     OUTPUT_DIR
-    / "gok_publications_greenland.csv",
+    / f"gok_publications_{COUNTRY_CODE}.csv",
     index=False
 )
 
 # ---------------------------------------------------------------------
-# STATISTICS: PUBLICATIONS WITH GREENLAND COLLABORATION
+# STATISTICS: PUBLICATIONS WITH COUNTRY COLLABORATION
 # ---------------------------------------------------------------------
 
-greenland_by_year = (
+country_by_year = (
     pubs
     .groupby(
         "publication_year"
@@ -510,45 +510,45 @@ greenland_by_year = (
             "nunique"
         ),
 
-        publications_with_greenland=(
-            "has_greenland_coauthor",
+        publications_with_country=(
+            "has_country_coauthor",
             "sum"
         ),
     )
     .reset_index()
 )
 
-greenland_by_year[
-    "percentage_with_greenland"
+country_by_year[
+    "percentage_with_country"
 ] = (
     100
     *
-    greenland_by_year[
-        "publications_with_greenland"
+    country_by_year[
+        "publications_with_country"
     ]
     /
-    greenland_by_year[
+    country_by_year[
         "publications"
     ]
 )
 
-greenland_by_year.to_csv(
+country_by_year.to_csv(
     OUTPUT_DIR
-    / "greenland_collaboration_by_year.csv",
+    / "country_collaboration_by_year.csv",
     index=False
 )
 
 
 # ---------------------------------------------------------------------
-# STATISTICS: GREENLANDIC INSTITUTIONS
+# STATISTICS: COUNTRY INSTITUTIONS
 # ---------------------------------------------------------------------
 
 if len(
-    greenland_institution_authors
+    country_institution_authors
 ) > 0:
 
     institution_summary = (
-        greenland_institution_authors
+        country_institution_authors
         .groupby(
             [
                 "institution_id",
@@ -587,7 +587,7 @@ else:
 
 institution_summary.to_csv(
     OUTPUT_DIR
-    / "greenland_institutions.csv",
+    / "country_institutions.csv",
     index=False
 )
 
@@ -597,12 +597,12 @@ institution_summary.to_csv(
 # ---------------------------------------------------------------------
 
 if len(
-    greenland_institution_authors
+    country_institution_authors
 ) > 0:
 
     # Add publication year
     institution_year = (
-        greenland_institution_authors
+        country_institution_authors
         .merge(
             pubs[
                 [
@@ -648,21 +648,21 @@ else:
 
 institution_by_year.to_csv(
     OUTPUT_DIR
-    / "greenland_institutions_by_year.csv",
+    / f"{COUNTRY_CODE}_institutions_by_year.csv",
     index=False
 )
 
 
 # ---------------------------------------------------------------------
-# GREENLANDIC AUTHORS
+# COUNTRY-SPECIFIC AUTHORS
 # ---------------------------------------------------------------------
 
 if len(
-    greenland_author_records
+    country_author_records
 ) > 0:
 
-    greenland_authors_summary = (
-        greenland_author_records
+    country_authors_summary = (
+        country_author_records
         .groupby(
             [
                 "author_id",
@@ -684,7 +684,7 @@ if len(
 
 else:
 
-    greenland_authors_summary = pd.DataFrame(
+    country_authors_summary = pd.DataFrame(
         columns=[
             "author_id",
             "author_name",
@@ -693,9 +693,9 @@ else:
     )
 
 
-greenland_authors_summary.to_csv(
+country_authors_summary.to_csv(
     OUTPUT_DIR
-    / "greenland_coauthors.csv",
+    / f"{COUNTRY_CODE}_coauthors.csv",
     index=False
 )
 
@@ -706,31 +706,31 @@ greenland_authors_summary.to_csv(
 
 total_publications = len(pubs)
 
-greenland_publications = int(
+country_publications = int(
     pubs[
-        "has_greenland_coauthor"
+        "has_country_coauthor"
     ].sum()
 )
 
 
 if total_publications > 0:
 
-    greenland_percentage = (
+    country_percentage = (
         100
         *
-        greenland_publications
+        country_publications
         /
         total_publications
     )
 
 else:
 
-    greenland_percentage = 0
+    country_percentage = 0
 
 
 print("\n")
 print("=" * 70)
-print("GREENLAND COLLABORATION ANALYSIS")
+print(f"{COUNTRY_CODE} COLLABORATION ANALYSIS")
 print("=" * 70)
 
 print(
@@ -739,25 +739,25 @@ print(
 )
 
 print(
-    f"Publications with Greenlandic "
+    f"Publications with {COUNTRY_CODE} "
     f"co-author: "
-    f"{greenland_publications}"
+    f"{country_publications}"
 )
 
 print(
-    f"Percentage with Greenlandic "
+    f"Percentage with {COUNTRY_CODE} "
     f"collaboration: "
-    f"{greenland_percentage:.1f}%"
+    f"{country_percentage:.1f}%"
 )
 
 print(
-    f"Unique Greenlandic institutions: "
+    f"Unique {COUNTRY_CODE} institutions: "
     f"{len(institution_summary)}"
 )
 
 print(
-    f"Unique Greenlandic co-authors: "
-    f"{len(greenland_authors_summary)}"
+    f"Unique {COUNTRY_CODE} co-authors: "
+    f"{len(country_authors_summary)}"
 )
 
 
@@ -765,7 +765,7 @@ if len(
     institution_summary
 ) > 0:
 
-    print("\nTop Greenlandic institutions:")
+    print(f"\nTop {COUNTRY_CODE} institutions:")
 
     print(
         institution_summary
@@ -777,28 +777,28 @@ if len(
 
 
 # ---------------------------------------------------------------------
-# PLOT: PUBLICATIONS PER YEAR — GREENLAND VS NO GREENLAND
+# PLOT: PUBLICATIONS PER YEAR — COUNTRY VS NO COUNTRY
 # ---------------------------------------------------------------------
 
-greenland_by_year["publications_without_greenland"] = (
-    greenland_by_year["publications"]
-    - greenland_by_year["publications_with_greenland"]
+country_by_year["publications_without_country"] = (
+    country_by_year["publications"]
+    - country_by_year["publications_with_country"]
 )
 
 
 plt.figure(figsize=(10, 6))
 
 plt.bar(
-    greenland_by_year["publication_year"],
-    greenland_by_year["publications_with_greenland"],
-    label="With Greenlandic institution"
+    country_by_year["publication_year"],
+    country_by_year["publications_with_country"],
+    label=f"With {COUNTRY_CODE} institution"
 )
 
 plt.bar(
-    greenland_by_year["publication_year"],
-    greenland_by_year["publications_without_greenland"],
-    bottom=greenland_by_year["publications_with_greenland"],
-    label="Without Greenlandic institution"
+    country_by_year["publication_year"],
+    country_by_year["publications_without_country"],
+    bottom=country_by_year["publications_with_country"],
+    label=f"Without {COUNTRY_CODE} institution"
 )
 
 plt.xlabel("Publication year")
@@ -806,7 +806,7 @@ plt.ylabel("Number of publications")
 
 plt.title(
     "GEUS Department of Glaciology and Climate\n"
-    "Publications with and without Greenlandic collaboration"
+    f"Publications with and without {COUNTRY_CODE} collaboration"
 )
 
 plt.legend()
@@ -815,22 +815,22 @@ plt.tight_layout()
 
 plt.savefig(
     FIGURE_DIR
-    / "greenland_collaboration_stacked_bar.png",
+    / f"{COUNTRY_CODE}_collaboration_stacked_bar.png",
     dpi=300
 )
 
 plt.close()
 
 # ---------------------------------------------------------------------
-# PLOT: PERCENTAGE OF OUTPUT WITH GREENLAND COLLABORATION
+# PLOT: PERCENTAGE OF OUTPUT WITH COUNTRY COLLABORATION
 # ---------------------------------------------------------------------
 
-greenland_by_year[
-    "percentage_without_greenland"
+country_by_year[
+    "percentage_without_country"
 ] = (
     100
-    - greenland_by_year[
-        "percentage_with_greenland"
+    - country_by_year[
+        "percentage_with_country"
     ]
 )
 
@@ -838,16 +838,16 @@ greenland_by_year[
 plt.figure(figsize=(10, 6))
 
 plt.bar(
-    greenland_by_year["publication_year"],
-    greenland_by_year["percentage_with_greenland"],
-    label="With Greenlandic institution"
+    country_by_year["publication_year"],
+    country_by_year["percentage_with_country"],
+    label=f"With {COUNTRY_CODE} institution"
 )
 
 plt.bar(
-    greenland_by_year["publication_year"],
-    greenland_by_year["percentage_without_greenland"],
-    bottom=greenland_by_year["percentage_with_greenland"],
-    label="Without Greenlandic institution"
+    country_by_year["publication_year"],
+    country_by_year["percentage_without_country"],
+    bottom=country_by_year["percentage_with_country"],
+    label=f"Without {COUNTRY_CODE} institution"
 )
 
 plt.xlabel("Publication year")
@@ -855,7 +855,7 @@ plt.ylabel("Percentage of publications")
 
 plt.title(
     "GEUS Department of Glaciology and Climate\n"
-    "Share of publications involving Greenlandic institutions"
+    f"Share of publications involving {COUNTRY_CODE} institutions"
 )
 
 plt.ylim(0, 100)
@@ -866,7 +866,7 @@ plt.tight_layout()
 
 plt.savefig(
     FIGURE_DIR
-    / "greenland_collaboration_percentage_stacked_bar.png",
+    / f"{COUNTRY_CODE}_collaboration_percentage_stacked_bar.png",
     dpi=300
 )
 
