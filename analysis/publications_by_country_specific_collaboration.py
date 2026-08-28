@@ -46,7 +46,7 @@ END_YEAR = 2025
 # institution in an authorship has the defined country_code.
 
 
-COUNTRY_CODE = "DK"
+COUNTRY_CODE = "US"
 
 # ---------------------------------------------------------------------
 # LOAD DATA

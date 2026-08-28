@@ -58,6 +58,9 @@ geus_pubs = pubs2[
 
 geus_pubs = geus_pubs[geus_pubs["type"] == "article"]
 
+print("Total number of GEUS articles: ", len(geus_pubs))
+print(f"Number of GEUS GOK articles: {len(gok_pubs)} ({len(gok_pubs)/len(geus_pubs)*100} %)")
+
 # ---------------------------------------------------------------------
 # PUBLICATIONS PER YEAR
 # ---------------------------------------------------------------------
