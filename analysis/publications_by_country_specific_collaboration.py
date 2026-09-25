@@ -28,7 +28,7 @@ FIGURE_DIR.mkdir(
     exist_ok=True
 )
 
-START_YEAR = 2000
+START_YEAR = 2016
 END_YEAR = 2025
 
 
@@ -46,7 +46,7 @@ END_YEAR = 2025
 # institution in an authorship has the defined country_code.
 
 
-COUNTRY_CODE = "US"
+COUNTRY_CODE = "GL"
 
 # ---------------------------------------------------------------------
 # LOAD DATA
@@ -534,7 +534,7 @@ country_by_year[
 
 country_by_year.to_csv(
     OUTPUT_DIR
-    / "country_collaboration_by_year.csv",
+    / f"{COUNTRY_CODE}_collaboration_by_year.csv",
     index=False
 )
 
@@ -587,7 +587,7 @@ else:
 
 institution_summary.to_csv(
     OUTPUT_DIR
-    / "country_institutions.csv",
+    / f"{COUNTRY_CODE}_institutions.csv",
     index=False
 )
 
@@ -652,21 +652,28 @@ institution_by_year.to_csv(
     index=False
 )
 
-
 # ---------------------------------------------------------------------
 # COUNTRY-SPECIFIC AUTHORS
 # ---------------------------------------------------------------------
+#
+# Save one row per country-specific co-author + institution.
+#
+# This preserves which institution(s) each co-author was affiliated
+# with on the publication.
+# ---------------------------------------------------------------------
 
 if len(
-    country_author_records
+    country_institution_authors
 ) > 0:
 
     country_authors_summary = (
-        country_author_records
+        country_institution_authors
         .groupby(
             [
                 "author_id",
                 "author_name",
+                "institution_id",
+                "institution_name",
             ]
         )
         .agg(
@@ -688,6 +695,8 @@ else:
         columns=[
             "author_id",
             "author_name",
+            "institution_id",
+            "institution_name",
             "publications",
         ]
     )
@@ -698,7 +707,6 @@ country_authors_summary.to_csv(
     / f"{COUNTRY_CODE}_coauthors.csv",
     index=False
 )
-
 
 # ---------------------------------------------------------------------
 # SUMMARY STATISTICS

@@ -379,11 +379,11 @@ authors = pd.DataFrame(
 
 # Pickle versions preserve the nested Python objects.
 publications.to_pickle(
-    "data/gok_publications.pkl"
+    "../data/gok_publications.pkl"
 )
 
 authors.to_pickle(
-    "data/gok_authors.pkl"
+    "../data/gok_authors.pkl"
 )
 
 

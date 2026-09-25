@@ -18,7 +18,7 @@ FIGURE_DIR = OUTPUT_DIR / "figures"
 OUTPUT_DIR.mkdir(exist_ok=True)
 FIGURE_DIR.mkdir(exist_ok=True)
 
-START_YEAR = 2000
+START_YEAR = 2010
 END_YEAR = 2025
 
 TOP_N_JOURNALS = 10
